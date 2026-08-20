@@ -1,0 +1,418 @@
+import { useState } from "react";
+import { MessageSquare, FileText, Send, Copy, RefreshCw, User, Calendar, MapPin, Activity, Pill, Stethoscope, Bed } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const serviceOptions = [
+  "Sala de yeso o traumatología",
+  "Triaje de medicina",
+  "Triaje de cirugía y hospitalización",
+  "Triaje de cirugía",
+  "Medicina piso",
+  "Cirugía piso",
+  "Emergencia pediátrica",
+  "Pediatría piso",
+];
+
+const servicesWithoutHabCama = [
+  "Sala de yeso o traumatología",
+  "Triaje de medicina",
+  "Triaje de cirugía",
+  "Emergencia pediátrica",
+];
+
+const getTodayDate = () => {
+  const today = new Date();
+  const day = String(today.getDate()).padStart(2, "0");
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const year = String(today.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+};
+
+const initialReport = {
+  service: "Sala de yeso o traumatología",
+  habCama: "",
+  date: getTodayDate(),
+  fi: "",
+  names: "Denimson",
+  lastName: "Añes",
+  age: "27 años",
+  ci: "27658353",
+  address: "Calle Silva",
+  idx: "Politraumatismos",
+  treatment: "Ketoprofeno, sol 09%",
+  observation: "Ya está siendo atendido",
+  pending: "Rx tórax, columna, cadera",
+  promoters: "Soleira Ruiz",
+};
+
+export default function App() {
+  const [report, setReport] = useState(initialReport);
+  const [message, setMessage] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const showHabCama = !servicesWithoutHabCama.includes(report.service);
+
+  const calculateFIDate = (days) => {
+    if (!days || isNaN(Number(days))) return "";
+    const today = new Date();
+    const fiDate = new Date(today);
+    fiDate.setDate(today.getDate() - Number(days));
+    const day = String(fiDate.getDate()).padStart(2, "0");
+    const month = String(fiDate.getMonth() + 1).padStart(2, "0");
+    const year = String(fiDate.getFullYear()).slice(-2);
+    return `${day}/${month}/${year}`;
+  };
+
+  const generateMessage = () => {
+    const fiDate = report.fi ? calculateFIDate(report.fi) : "";
+    
+    const habCamaLine = showHabCama && report.habCama ? `*HAB-Cama:* ${report.habCama}\n` : "";
+    const fiLine = showHabCama && fiDate ? `*FI:* ${fiDate}\n` : "";
+
+    return `*🚨 REPORTE 🚨*
+*SERVICIO SOCIAL*
+
+*Servicio:* ${report.service}
+${habCamaLine}*Fecha:* ${getTodayDate()}
+${fiLine}*Nombres:* ${report.names}
+*Apellido:* ${report.lastName}
+*Edad:* ${report.age}
+*CI:* ${report.ci}
+*Dirección:* ${report.address}
+*IDX:* ${report.idx}
+
+*Tratamiento:* ${report.treatment}
+
+*Observación:* ${report.observation}
+*Pendiente:*
+${report.pending}
+
+*Promotor(a):* ${report.promoters}`;
+  };
+
+  const handleGenerate = () => {
+    setMessage(generateMessage());
+    setCopied(false);
+  };
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(message);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSendWhatsApp = () => {
+    const encoded = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encoded}`, "_blank");
+  };
+
+  const updateField = (field, value) => {
+    setReport((prev) => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50">
+      <div className="max-w-7xl mx-auto p-6 lg:p-8">
+        {/* Header */}
+        <header className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-3 bg-rose-600 rounded-xl shadow-lg shadow-rose-600/20">
+              <FileText className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-rose-900 font-serif">Reporte WhatsApp</h1>
+              <p className="text-sm text-rose-700/70">Organizador de reportes de servicio social</p>
+            </div>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Form */}
+          <Card className="border-rose-200/50 shadow-lg shadow-rose-900/5 bg-white/80 backdrop-blur">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-rose-900">
+                <FileText className="w-5 h-5 text-rose-600" />
+                Datos del Reporte
+              </CardTitle>
+              <CardDescription>Completa la información del paciente y servicio</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Service Section */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <Label className="text-rose-900 font-semibold">Servicio</Label>
+                  <Select
+                    value={report.service}
+                    onValueChange={(value) => updateField("service", value)}
+                  >
+                    <SelectTrigger className="border-rose-200 focus:border-rose-500 focus:ring-rose-500">
+                      <SelectValue placeholder="Selecciona un servicio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {serviceOptions.map((service) => (
+                        <SelectItem key={service} value={service}>
+                          {service}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {showHabCama && (
+                  <div className="space-y-3">
+                    <Label className="text-rose-900 font-semibold">HAB-Cama</Label>
+                    <Input
+                      value={report.habCama}
+                      onChange={(e) => updateField("habCama", e.target.value)}
+                      className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
+                      placeholder="Ej: 12-3"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Date & FI */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-rose-900">Fecha</Label>
+                  <Input
+                    value={getTodayDate()}
+                    disabled
+                    className="border-rose-200 bg-rose-50 text-rose-900"
+                  />
+                  <p className="text-xs text-rose-600">Fecha automática del día</p>
+                </div>
+                {showHabCama && (
+                  <div className="space-y-2">
+                    <Label className="text-rose-900">FI (días de ingreso)</Label>
+                    <Input
+                      value={report.fi}
+                      onChange={(e) => updateField("fi", e.target.value)}
+                      className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
+                      placeholder="Ej: 5"
+                      type="number"
+                      min="0"
+                    />
+                    {report.fi && !isNaN(Number(report.fi)) && (
+                      <p className="text-xs text-rose-600">
+                        Fecha de ingreso: {calculateFIDate(report.fi)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Age & CI */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-rose-900">Edad</Label>
+                  <Input
+                    value={report.age}
+                    onChange={(e) => updateField("age", e.target.value)}
+                    className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
+                    placeholder="Ej: 27 años"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-rose-900">CI</Label>
+                  <Input
+                    value={report.ci}
+                    onChange={(e) => updateField("ci", e.target.value)}
+                    className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
+                    placeholder="Cédula de identidad"
+                  />
+                </div>
+              </div>
+
+              {/* Names */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-rose-900">Nombres</Label>
+                  <Input
+                    value={report.names}
+                    onChange={(e) => updateField("names", e.target.value)}
+                    className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
+                    placeholder="Nombres del paciente"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-rose-900">Apellido</Label>
+                  <Input
+                    value={report.lastName}
+                    onChange={(e) => updateField("lastName", e.target.value)}
+                    className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
+                    placeholder="Apellido del paciente"
+                  />
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="space-y-2">
+                <Label className="text-rose-900">Dirección</Label>
+                <Input
+                  value={report.address}
+                  onChange={(e) => updateField("address", e.target.value)}
+                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
+                  placeholder="Dirección del paciente"
+                />
+              </div>
+
+              {/* Medical Info */}
+              <div className="space-y-2">
+                <Label className="text-rose-900">IDX (Diagnóstico)</Label>
+                <Input
+                  value={report.idx}
+                  onChange={(e) => updateField("idx", e.target.value)}
+                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
+                  placeholder="Ej: Politraumatismos"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-rose-900">Tratamiento</Label>
+                <Textarea
+                  value={report.treatment}
+                  onChange={(e) => updateField("treatment", e.target.value)}
+                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500 min-h-[80px]"
+                  placeholder="Medicamentos y tratamiento"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-rose-900">Observación</Label>
+                <Textarea
+                  value={report.observation}
+                  onChange={(e) => updateField("observation", e.target.value)}
+                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500 min-h-[60px]"
+                  placeholder="Observaciones del caso"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-rose-900">Pendiente</Label>
+                <Textarea
+                  value={report.pending}
+                  onChange={(e) => updateField("pending", e.target.value)}
+                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500 min-h-[60px]"
+                  placeholder="Exámenes o procedimientos pendientes"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-rose-900">Promotor(a)</Label>
+                <Input
+                  value={report.promoters}
+                  onChange={(e) => updateField("promoters", e.target.value)}
+                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
+                  placeholder="Nombres de los promotores"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Right Column - Preview & Generate */}
+          <div className="space-y-6">
+            <Card className="border-rose-200/50 shadow-lg shadow-rose-900/5 bg-white/80 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-rose-900">
+                  <MessageSquare className="w-5 h-5 text-rose-600" />
+                  Generador de Mensaje
+                </CardTitle>
+                <CardDescription>Genera el reporte formateado para WhatsApp</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Quick summary badges */}
+                <div className="flex flex-wrap gap-2">
+                  <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100">
+                    {report.service}
+                  </Badge>
+                  {showHabCama && report.habCama && (
+                    <Badge variant="outline" className="text-rose-700 border-rose-200">
+                      <Bed className="w-3 h-3 mr-1" />
+                      {report.habCama}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="text-rose-700 border-rose-200">
+                    {getTodayDate()}
+                  </Badge>
+                  <Badge variant="outline" className="text-rose-700 border-rose-200">
+                    {report.names} {report.lastName}
+                  </Badge>
+                </div>
+
+                <Button
+                  onClick={handleGenerate}
+                  className="w-full bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Generar Reporte
+                </Button>
+
+                {message && (
+                  <div className="space-y-4">
+                    <div className="rounded-lg bg-rose-50/50 border border-rose-200 p-4">
+                      <pre className="whitespace-pre-wrap font-mono text-sm text-rose-900 leading-relaxed">
+                        {message}
+                      </pre>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleCopy}
+                        variant="outline"
+                        className="flex-1 border-rose-300 text-rose-700 hover:bg-rose-50"
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        {copied ? "¡Copiado!" : "Copiar"}
+                      </Button>
+                      <Button
+                        onClick={handleSendWhatsApp}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-600/20"
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        Enviar por WhatsApp
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick reference card */}
+            <Card className="border-rose-200/50 shadow-lg shadow-rose-900/5 bg-white/80 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="text-sm text-rose-900">Formato del Reporte</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm text-rose-700/80">
+                  <p>• *🚨 REPORTE 🚨* - Encabezado principal en negrita</p>
+                  <p>• *SERVICIO SOCIAL* - Tipo de reporte en negrita</p>
+                  {showHabCama ? (
+                    <>
+                      <p>• *HAB-Cama* y *FI* - Ubicación y fecha de ingreso</p>
+                      <p>• *Datos del paciente* y diagnóstico en negrita</p>
+                    </>
+                  ) : (
+                    <p>• *Datos del paciente* y diagnóstico en negrita</p>
+                  )}
+                  <p>• *Tratamiento* y *observaciones* en negrita</p>
+                  <p>• *Pendientes* y *promotores* en negrita</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
