@@ -1,418 +1,266 @@
-import { useState } from "react";
-import { MessageSquare, FileText, Send, Copy, RefreshCw, User, Calendar, MapPin, Activity, Pill, Stethoscope, Bed } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Censo Editor</title>
+    <!-- Tailwind CSS por CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React y ReactDOM por CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel para compilar JSX en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-100 font-sans">
+    <div id="root"></div>
 
-const serviceOptions = [
-  "Sala de yeso o traumatología",
-  "Triaje de medicina",
-  "Triaje de cirugía y hospitalización",
-  "Triaje de cirugía",
-  "Medicina piso",
-  "Cirugía piso",
-  "Emergencia pediátrica",
-  "Pediatría piso",
-];
+    <script type="text/babel">
+        const { useState } = React;
 
-const servicesWithoutHabCama = [
-  "Sala de yeso o traumatología",
-  "Triaje de medicina",
-  "Triaje de cirugía",
-  "Emergencia pediátrica",
-];
+        function App() {
+            const [content, setContent] = useState("");
+            const [copied, setCopied] = useState(false);
+            const [startLine, setStartLine] = useState("10");
+            const [endLine, setEndLine] = useState("20");
+            const [replacementText, setReplacementText] = useState("");
+            const [showLineNumbers, setShowLineNumbers] = useState(false);
+            const [currentLine, setCurrentLine] = useState(0);
 
-const getTodayDate = () => {
-  const today = new Date();
-  const day = String(today.getDate()).padStart(2, "0");
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const year = String(today.getFullYear()).slice(-2);
-  return `${day}/${month}/${year}`;
-};
+            const lines = content.split("\n");
 
-const initialReport = {
-  service: "Sala de yeso o traumatología",
-  habCama: "",
-  date: getTodayDate(),
-  fi: "",
-  names: "Denimson",
-  lastName: "Añes",
-  age: "27 años",
-  ci: "27658353",
-  address: "Calle Silva",
-  idx: "Politraumatismos",
-  treatment: "Ketoprofeno, sol 09%",
-  observation: "Ya está siendo atendido",
-  pending: "Rx tórax, columna, cadera",
-  promoters: "Soleira Ruiz",
-};
+            const handleCopy = async () => {
+                try {
+                    await navigator.clipboard.writeText(content);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                } catch {
+                    const textarea = document.createElement("textarea");
+                    textarea.value = content;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(textarea);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                }
+            };
 
-export default function App() {
-  const [report, setReport] = useState(initialReport);
-  const [message, setMessage] = useState("");
-  const [copied, setCopied] = useState(false);
+            const handleReplaceLines = () => {
+                const startIdx = parseInt(startLine) - 1;
+                const endIdx = parseInt(endLine) - 1;
+                
+                if (startIdx >= 0 && endIdx < lines.length && startIdx <= endIdx && replacementText) {
+                    const newLines = [
+                        ...lines.slice(0, startIdx),
+                        replacementText,
+                        ...lines.slice(endIdx + 1)
+                    ];
+                    setContent(newLines.join("\n"));
+                    setReplacementText("");
+                }
+            };
 
-  const showHabCama = !servicesWithoutHabCama.includes(report.service);
+            const getLineCount = () => (!content ? 0 : lines.length);
 
-  const calculateFIDate = (days) => {
-    if (!days || isNaN(Number(days))) return "";
-    const today = new Date();
-    const fiDate = new Date(today);
-    fiDate.setDate(today.getDate() - Number(days));
-    const day = String(fiDate.getDate()).padStart(2, "0");
-    const month = String(fiDate.getMonth() + 1).padStart(2, "0");
-    const year = String(fiDate.getFullYear()).slice(-2);
-    return `${day}/${month}/${year}`;
-  };
+            const getLineContent = (lineNumber) => {
+                if (lineNumber >= 1 && lineNumber <= lines.length) {
+                    return lines[lineNumber - 1];
+                }
+                return "";
+            };
 
-  const generateMessage = () => {
-    const fiDate = report.fi ? calculateFIDate(report.fi) : "";
-    
-    const habCamaLine = showHabCama && report.habCama ? `*HAB-Cama:* ${report.habCama}\n` : "";
-    const fiLine = showHabCama && fiDate ? `*FI:* ${fiDate}\n` : "";
+            const handleCursorCheck = (e) => {
+                const textarea = e.currentTarget;
+                const cursorPos = textarea.selectionStart;
+                const textBeforeCursor = content.substring(0, cursorPos);
+                const lineNumber = textBeforeCursor.split("\n").length;
+                setCurrentLine(lineNumber);
+            };
 
-    return `*🚨 REPORTE 🚨*
-*SERVICIO SOCIAL*
+            const getLinePreview = (lineNumber) => {
+                const lineContent = getLineContent(lineNumber);
+                if (!lineContent) return "Línea vacía";
+                return lineContent.length > 60 ? lineContent.substring(0, 60) + "..." : lineContent;
+            };
 
-*Servicio:* ${report.service}
-${habCamaLine}*Fecha:* ${getTodayDate()}
-${fiLine}*Nombres:* ${report.names}
-*Apellido:* ${report.lastName}
-*Edad:* ${report.age}
-*CI:* ${report.ci}
-*Dirección:* ${report.address}
-*IDX:* ${report.idx}
+            return (
+                <div className="min-h-screen bg-slate-100">
+                    <header className="bg-emerald-700 text-white shadow-md">
+                        <div className="mx-auto max-w-7xl px-6 py-6 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="rounded-xl bg-emerald-600 p-2.5 shadow-inner">
+                                    📄
+                                </div>
+                                <div>
+                                    <h1 className="text-2xl font-bold tracking-tight">WhatsApp Censo Editor</h1>
+                                    <p className="text-sm text-emerald-100">Formatea y copia censos hospitalarios largos sin perder formato</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setContent("")}
+                                    className="flex items-center bg-emerald-600 text-white hover:bg-emerald-500 px-3 py-2 rounded-lg text-sm font-medium transition"
+                                >
+                                    🧹 Limpiar
+                                </button>
+                                <button
+                                    onClick={handleCopy}
+                                    className="flex items-center bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-lg text-sm font-semibold shadow transition"
+                                >
+                                    {copied ? "✅ ¡Copiado!" : "📋 Copiar a WhatsApp"}
+                                </button>
+                            </div>
+                        </div>
+                    </header>
 
-*Tratamiento:* ${report.treatment}
+                    <main className="mx-auto max-w-7xl px-6 py-8">
+                        {/* Panel de información */}
+                        <div className="mb-6 rounded-xl border border-emerald-200 bg-white shadow-md p-6">
+                            <h2 className="text-base font-semibold text-emerald-900 mb-4 pb-2 border-b border-slate-100">
+                                👁️ Información de líneas
+                            </h2>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                                    <div className="text-sm font-semibold text-emerald-800">Línea actual del cursor</div>
+                                    {currentLine > 0 ? (
+                                        <div className="mt-2">
+                                            <div className="text-xl font-bold text-emerald-700">Línea {currentLine}</div>
+                                            <div className="mt-1 rounded bg-white p-2 font-mono text-xs text-slate-700 truncate">{getLinePreview(currentLine)}</div>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-2 text-sm text-slate-500">Haz clic en cualquier línea del editor</div>
+                                    )}
+                                </div>
 
-*Observación:* ${report.observation}
-*Pendiente:*
-${report.pending}
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                                    <div className="text-sm font-semibold text-emerald-800">Línea de inicio ({startLine || "?"})</div>
+                                    <div className="mt-2 rounded bg-white p-2 font-mono text-xs text-slate-700 truncate">
+                                        {getLinePreview(parseInt(startLine) || 0)}
+                                    </div>
+                                </div>
 
-*Promotor(a):* ${report.promoters}`;
-  };
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                                    <div className="text-sm font-semibold text-emerald-800">Línea de fin ({endLine || "?"})</div>
+                                    <div className="mt-2 rounded bg-white p-2 font-mono text-xs text-slate-700 truncate">
+                                        {getLinePreview(parseInt(endLine) || 0)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-  const handleGenerate = () => {
-    setMessage(generateMessage());
-    setCopied(false);
-  };
+                        {/* Panel de reemplazo */}
+                        <div className="mb-6 rounded-xl border border-emerald-200 bg-white shadow-md p-6">
+                            <h2 className="text-base font-semibold text-emerald-900 mb-4 pb-2 border-b border-slate-100">
+                                🔄 Reemplazar rango de líneas
+                            </h2>
+                            <div className="flex flex-wrap items-end gap-3">
+                                <div className="w-32">
+                                    <label className="text-sm font-medium text-slate-700">Desde línea</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={getLineCount()}
+                                        value={startLine}
+                                        onChange={(e) => setStartLine(e.target.value)}
+                                        className="mt-1 w-full rounded-lg border border-emerald-200 p-2 text-sm focus:ring-2 focus:ring-emerald-400 outline-none"
+                                    />
+                                </div>
+                                <div className="w-32">
+                                    <label className="text-sm font-medium text-slate-700">Hasta línea</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={getLineCount()}
+                                        value={endLine}
+                                        onChange={(e) => setEndLine(e.target.value)}
+                                        className="mt-1 w-full rounded-lg border border-emerald-200 p-2 text-sm focus:ring-2 focus:ring-emerald-400 outline-none"
+                                    />
+                                </div>
+                                <div className="flex-1 min-w-[280px]">
+                                    <label className="text-sm font-medium text-slate-700">Texto de reemplazo</label>
+                                    <textarea
+                                        value={replacementText}
+                                        onChange={(e) => setReplacementText(e.target.value)}
+                                        placeholder="Escribe el nuevo texto..."
+                                        className="mt-1 w-full rounded-lg border border-emerald-200 p-2 text-sm focus:ring-2 focus:ring-emerald-400 outline-none h-10 resize-none"
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleReplaceLines}
+                                    disabled={!replacementText || !startLine || !endLine}
+                                    className="bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2"
+                                >
+                                    Reemplazar rango
+                                </button>
+                            </div>
+                            <div className="mt-4 flex items-center justify-between text-sm text-slate-600 pt-3 border-t border-slate-100">
+                                <span>El documento tiene <strong>{getLineCount()}</strong> líneas</span>
+                                <button
+                                    onClick={() => setShowLineNumbers(!showLineNumbers)}
+                                    className="border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-1 rounded-lg text-xs font-semibold transition"
+                                >
+                                    {showLineNumbers ? "Ocultar" : "Mostrar"} números de línea
+                                </button>
+                            </div>
+                        </div>
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(message);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+                        {/* Editor y Vista Previa */}
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                            {/* Editor */}
+                            <div className="rounded-xl border border-emerald-200 bg-white shadow-lg p-4">
+                                <div className="mb-3 flex items-center justify-between border-b pb-2">
+                                    <span className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white">EDITAR</span>
+                                    <span className="text-xs text-slate-400">Escribe o pega tu censo</span>
+                                </div>
+                                <div className="relative flex">
+                                    {showLineNumbers && (
+                                        <div className="w-12 bg-emerald-50 border-r border-emerald-200 select-none py-3 font-mono text-xs text-emerald-600 text-right pr-2">
+                                            {lines.map((_, i) => (
+                                                <div key={i} className="leading-relaxed">{i + 1}</div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <textarea
+                                        value={content}
+                                        onChange={(e) => setContent(e.target.value)}
+                                        onClick={handleCursorCheck}
+                                        onKeyUp={handleCursorCheck}
+                                        placeholder="Pega aquí tu censo hospitalario..."
+                                        className={`w-full h-[500px] bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-400 outline-none resize-none ${showLineNumbers ? "pl-3" : ""}`}
+                                    />
+                                </div>
+                            </div>
 
-  const handleSendWhatsApp = () => {
-    const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/?text=${encoded}`, "_blank");
-  };
-
-  const updateField = (field, value) => {
-    setReport((prev) => ({ ...prev, [field]: value }));
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50">
-      <div className="max-w-7xl mx-auto p-6 lg:p-8">
-        {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-rose-600 rounded-xl shadow-lg shadow-rose-600/20">
-              <FileText className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-rose-900 font-serif">Reporte WhatsApp</h1>
-              <p className="text-sm text-rose-700/70">Organizador de reportes de servicio social</p>
-            </div>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column - Form */}
-          <Card className="border-rose-200/50 shadow-lg shadow-rose-900/5 bg-white/80 backdrop-blur">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-rose-900">
-                <FileText className="w-5 h-5 text-rose-600" />
-                Datos del Reporte
-              </CardTitle>
-              <CardDescription>Completa la información del paciente y servicio</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Service Section */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <Label className="text-rose-900 font-semibold">Servicio</Label>
-                  <Select
-                    value={report.service}
-                    onValueChange={(value) => updateField("service", value)}
-                  >
-                    <SelectTrigger className="border-rose-200 focus:border-rose-500 focus:ring-rose-500">
-                      <SelectValue placeholder="Selecciona un servicio" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {serviceOptions.map((service) => (
-                        <SelectItem key={service} value={service}>
-                          {service}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                            {/* Vista Previa */}
+                            <div className="rounded-xl border border-emerald-200 bg-white shadow-lg p-4 flex flex-col">
+                                <div className="mb-3 flex items-center justify-between border-b pb-2">
+                                    <span className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white">VISTA PREVIA</span>
+                                    <span className="text-xs text-slate-500">💬 WhatsApp</span>
+                                </div>
+                                <div className="flex-1 rounded-xl bg-[#e5ddd5] p-4 flex flex-col justify-between overflow-hidden">
+                                    <div className="flex-1 overflow-y-auto rounded-lg bg-white p-4 shadow-sm">
+                                        {content.trim().length === 0 ? (
+                                            <p className="text-center text-slate-400 mt-32 text-sm">Aún no hay contenido para mostrar...</p>
+                                        ) : (
+                                            <div className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-slate-800">
+                                                {content}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-3 flex justify-between text-xs text-slate-600">
+                                        <span>{content.length} caracteres</span>
+                                        <span>{lines.length} líneas</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
                 </div>
-                {showHabCama && (
-                  <div className="space-y-3">
-                    <Label className="text-rose-900 font-semibold">HAB-Cama</Label>
-                    <Input
-                      value={report.habCama}
-                      onChange={(e) => updateField("habCama", e.target.value)}
-                      className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
-                      placeholder="Ej: 12-3"
-                    />
-                  </div>
-                )}
-              </div>
+            );
+        }
 
-              {/* Date & FI */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-rose-900">Fecha</Label>
-                  <Input
-                    value={getTodayDate()}
-                    disabled
-                    className="border-rose-200 bg-rose-50 text-rose-900"
-                  />
-                  <p className="text-xs text-rose-600">Fecha automática del día</p>
-                </div>
-                {showHabCama && (
-                  <div className="space-y-2">
-                    <Label className="text-rose-900">FI (días de ingreso)</Label>
-                    <Input
-                      value={report.fi}
-                      onChange={(e) => updateField("fi", e.target.value)}
-                      className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
-                      placeholder="Ej: 5"
-                      type="number"
-                      min="0"
-                    />
-                    {report.fi && !isNaN(Number(report.fi)) && (
-                      <p className="text-xs text-rose-600">
-                        Fecha de ingreso: {calculateFIDate(report.fi)}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Age & CI */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-rose-900">Edad</Label>
-                  <Input
-                    value={report.age}
-                    onChange={(e) => updateField("age", e.target.value)}
-                    className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
-                    placeholder="Ej: 27 años"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-rose-900">CI</Label>
-                  <Input
-                    value={report.ci}
-                    onChange={(e) => updateField("ci", e.target.value)}
-                    className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
-                    placeholder="Cédula de identidad"
-                  />
-                </div>
-              </div>
-
-              {/* Names */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-rose-900">Nombres</Label>
-                  <Input
-                    value={report.names}
-                    onChange={(e) => updateField("names", e.target.value)}
-                    className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
-                    placeholder="Nombres del paciente"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-rose-900">Apellido</Label>
-                  <Input
-                    value={report.lastName}
-                    onChange={(e) => updateField("lastName", e.target.value)}
-                    className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
-                    placeholder="Apellido del paciente"
-                  />
-                </div>
-              </div>
-
-              {/* Address */}
-              <div className="space-y-2">
-                <Label className="text-rose-900">Dirección</Label>
-                <Input
-                  value={report.address}
-                  onChange={(e) => updateField("address", e.target.value)}
-                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
-                  placeholder="Dirección del paciente"
-                />
-              </div>
-
-              {/* Medical Info */}
-              <div className="space-y-2">
-                <Label className="text-rose-900">IDX (Diagnóstico)</Label>
-                <Input
-                  value={report.idx}
-                  onChange={(e) => updateField("idx", e.target.value)}
-                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
-                  placeholder="Ej: Politraumatismos"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-rose-900">Tratamiento</Label>
-                <Textarea
-                  value={report.treatment}
-                  onChange={(e) => updateField("treatment", e.target.value)}
-                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500 min-h-[80px]"
-                  placeholder="Medicamentos y tratamiento"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-rose-900">Observación</Label>
-                <Textarea
-                  value={report.observation}
-                  onChange={(e) => updateField("observation", e.target.value)}
-                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500 min-h-[60px]"
-                  placeholder="Observaciones del caso"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-rose-900">Pendiente</Label>
-                <Textarea
-                  value={report.pending}
-                  onChange={(e) => updateField("pending", e.target.value)}
-                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500 min-h-[60px]"
-                  placeholder="Exámenes o procedimientos pendientes"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-rose-900">Promotor(a)</Label>
-                <Input
-                  value={report.promoters}
-                  onChange={(e) => updateField("promoters", e.target.value)}
-                  className="border-rose-200 focus:border-rose-500 focus:ring-rose-500"
-                  placeholder="Nombres de los promotores"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Right Column - Preview & Generate */}
-          <div className="space-y-6">
-            <Card className="border-rose-200/50 shadow-lg shadow-rose-900/5 bg-white/80 backdrop-blur">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-rose-900">
-                  <MessageSquare className="w-5 h-5 text-rose-600" />
-                  Generador de Mensaje
-                </CardTitle>
-                <CardDescription>Genera el reporte formateado para WhatsApp</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Quick summary badges */}
-                <div className="flex flex-wrap gap-2">
-                  <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100">
-                    {report.service}
-                  </Badge>
-                  {showHabCama && report.habCama && (
-                    <Badge variant="outline" className="text-rose-700 border-rose-200">
-                      <Bed className="w-3 h-3 mr-1" />
-                      {report.habCama}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="text-rose-700 border-rose-200">
-                    {getTodayDate()}
-                  </Badge>
-                  <Badge variant="outline" className="text-rose-700 border-rose-200">
-                    {report.names} {report.lastName}
-                  </Badge>
-                </div>
-
-                <Button
-                  onClick={handleGenerate}
-                  className="w-full bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Generar Reporte
-                </Button>
-
-                {message && (
-                  <div className="space-y-4">
-                    <div className="rounded-lg bg-rose-50/50 border border-rose-200 p-4">
-                      <pre className="whitespace-pre-wrap font-mono text-sm text-rose-900 leading-relaxed">
-                        {message}
-                      </pre>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleCopy}
-                        variant="outline"
-                        className="flex-1 border-rose-300 text-rose-700 hover:bg-rose-50"
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        {copied ? "¡Copiado!" : "Copiar"}
-                      </Button>
-                      <Button
-                        onClick={handleSendWhatsApp}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-600/20"
-                      >
-                        <Send className="w-4 h-4 mr-2" />
-                        Enviar por WhatsApp
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Quick reference card */}
-            <Card className="border-rose-200/50 shadow-lg shadow-rose-900/5 bg-white/80 backdrop-blur">
-              <CardHeader>
-                <CardTitle className="text-sm text-rose-900">Formato del Reporte</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm text-rose-700/80">
-                  <p>• *🚨 REPORTE 🚨* - Encabezado principal en negrita</p>
-                  <p>• *SERVICIO SOCIAL* - Tipo de reporte en negrita</p>
-                  {showHabCama ? (
-                    <>
-                      <p>• *HAB-Cama* y *FI* - Ubicación y fecha de ingreso</p>
-                      <p>• *Datos del paciente* y diagnóstico en negrita</p>
-                    </>
-                  ) : (
-                    <p>• *Datos del paciente* y diagnóstico en negrita</p>
-                  )}
-                  <p>• *Tratamiento* y *observaciones* en negrita</p>
-                  <p>• *Pendientes* y *promotores* en negrita</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
